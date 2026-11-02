@@ -146,6 +146,11 @@ img{display:block;-webkit-user-drag:none;user-select:none}
 .slider .knob{position:absolute;left:7px;top:7px;width:85px;height:85px;border-radius:50%;background:linear-gradient(160deg,#1fb48e,#12936f);border:5px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;touch-action:none;cursor:grab;z-index:2}
 .slider.drag .knob{transition:none}
 .slider .knob{transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+/* soft glint sweeping in the swipe direction, as a hint how to drag */
+.slider:not(.run)::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(105deg,transparent 15%,rgba(255,255,255,.65) 50%,transparent 85%) no-repeat;background-size:38% 100%;background-position:-90% 0;animation:glint 3.8s ease-in-out infinite}
+.slider.drag::before{animation:none;opacity:0}
+@keyframes glint{0%{background-position:-90% 0}55%,100%{background-position:190% 0}}
+@media (prefers-reduced-motion:reduce){.slider:not(.run)::before{animation:none;opacity:0}}
 .slider .lbl{position:absolute;right:25px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;text-align:right;pointer-events:none}
 .slider .lbl b{font-size:27px;line-height:1.14;font-weight:600;letter-spacing:-.2px}
 .slider .lbl span{font-size:14.5px;margin-top:2px}
