@@ -390,7 +390,7 @@ function stopRide(auto) {
   const toIdx = routeStopAfter(r.from, sec);
   // like the real app, the price arrives a little later as a notification
   const rec = { id: r.id, start: r.start, end, from: STOPS[r.from][0], to: STOPS[toIdx][0], auto: !!auto, evaluated: false, evalAt: Date.now() + 12e3, ...fare(r.start, end, S.user.dob, S.history) };
-  S.history.unshift(rec); S.ride = null; S.stop = toIdx; S.lastSeen = 0; save();
+  S.history.unshift(rec); S.ride = null; S.lastSeen = 0; save(); // boarding stop stays as chosen
   go('thanks', { rec }, { reset: true, anim: 'fade' });
 }
 function evaluateRides() {
@@ -754,12 +754,16 @@ SCREENS.about = root => {
 };
 
 /* ------------------------------------------------------------------ boot */
-setInterval(() => {
+const tick = () => {
   // a day ticket ends at 3:00 – close a forgotten ride like the real app does
   if (S.ride && S.user && Date.now() >= S.ride.validTo) { stopRide(true); return; }
   if (S.user) evaluateRides();
   tickFn && tickFn();
-}, 1000);
+};
+setInterval(tick, 1000);
+// iOS pauses timers in the background, so refresh the moment the app is back
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+addEventListener('pageshow', tick);
 document.addEventListener('contextmenu', e => { if (e.target.closest('img')) e.preventDefault(); });
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 go('splash', {}, { reset: true, anim: '' });
