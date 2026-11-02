@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>FAIRTIQ</title>
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#e21a34">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FAIRTIQ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=7">
+<script>
+// iOS home-screen apps with a translucent status bar report a viewport that is
+// one status bar shorter than the screen, leaving a white strip at the bottom.
+(function () {
+  if (!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)) return;
+  var fit = function () {
+    var h = innerHeight > innerWidth ? Math.max(innerHeight, screen.height) : innerHeight;
+    document.documentElement.style.setProperty('--app-h', h + 'px');
+  };
+  fit(); addEventListener('resize', fit); addEventListener('orientationchange', fit);
+})();
+</script>
+</head>
+<body>
+<div id="stage">
+  <div id="phone">
+    <div id="screen"></div>
+    <div id="overlay"></div>
+    <div id="toast"></div>
+  </div>
+</div>
+<script src="assets/bwip-js-min.js"></script>
+<script src="app.js?v=7"></script>
+</body>
+</html>

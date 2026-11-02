@@ -1,0 +1,15 @@
+{
+  "name": "FAIRTIQ",
+  "short_name": "FAIRTIQ",
+  "description": "Public transport made easy.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e21a34",
+  "theme_color": "#e21a34",
+  "lang": "cs",
+  "icons": [
+    {"src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
