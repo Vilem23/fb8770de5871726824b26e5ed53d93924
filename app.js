@@ -5,30 +5,38 @@
 const DEFAULT_USER = { first: 'Vilém', last: 'Částka', email: 'vilemcastka34@gmail.com', dob: '2008-12-05', notifReceipt: true, notifBonus: true };
 
 /* MHD Zlín, linka 32 – trasa A (jízdní řád DSZO platný od 1. 9. 2026).
-   Okružní trasa z Kudlova; číslo = minuty jízdy od zastávky Kudlov, točna. */
-const LOOP_MIN = 32;
-const ROUTE = [
+   Okružní trasa z Kudlova; min = minuty jízdy od zastávky Kudlov, točna. Dá se změnit v dev menu. */
+const DEFAULT_LOOP = 32;
+const DEFAULT_ROUTE = [
   ['Kudlov točna', 0], ['Kudlov u pomníku padlých', 2], ['Kudlov Výhledy', 3], ['Kudlov střed', 4],
   ['Kudlov dolní konec', 5], ['Hradská', 7], ['Zimní lázně', 7], ['Školní', 10], ['Náměstí Míru', 13],
   ['Náměstí Práce', 13], ['Zimní stadion-Trinity Bank', 16], ['U Majáku křižovatka', 19], ['U Majáku točna', 20],
-  ['Ke Křibům', 21], ['Lesní hřbitov', 23], ['Filmové ateliéry Fabiánka', 24], ['Filmové ateliéry točna', 26],
-  ['Filmové ateliéry Fabiánka', 26.5], ['Kudlov tiskárna', 29], ['Kudlov u pomníku padlých', 30],
-];
-const STOPS = [...new Set(ROUTE.map(r => r[0]))].map(n => ['Zlín, ' + n, 'Zlínský kraj']);
+  ['Ke Křibům', 21], ['Lesní hřbitov', 23], ['Filmové Ateliéry, Fabiánka', 24], ['Filmové ateliéry točna', 26],
+  ['Filmové Ateliéry, Fabiánka', 26.5], ['Kudlov tiskárna', 29], ['Kudlov u pomníku padlých', 30],
+].map(([n, min]) => ({ name: 'Zlín, ' + n, region: 'Zlínský kraj', min }));
+let ROUTE, LOOP_MIN, STOPS;
+function applyRoute(route, loop) {
+  ROUTE = route; LOOP_MIN = loop;
+  const seen = new Map();
+  route.forEach(r => seen.has(r.name) || seen.set(r.name, r.region));
+  STOPS = [...seen].map(([n, reg]) => [n, reg]);
+}
+applyRoute(DEFAULT_ROUTE, DEFAULT_LOOP);
 const stopIdx = name => STOPS.findIndex(s => s[0] === name);
 const HOME_STOP = stopIdx('Zlín, Filmové ateliéry točna');
 
 /* Where the bus is after `sec` seconds when boarding at STOPS[from]. */
 function routeStopAfter(from, sec) {
-  const name = STOPS[from][0].slice(6);
-  const p0 = ROUTE.findIndex(r => r[0] === name), t0 = ROUTE[p0][1], min = sec / 60;
+  const p0 = ROUTE.findIndex(r => r.name === STOPS[from][0]);
+  if (p0 < 0) return from;
+  const t0 = ROUTE[p0].min, min = (sec / 60) % LOOP_MIN, n = ROUTE.length;
   let best = p0;
-  for (let k = 1; k < ROUTE.length * 4; k++) {
-    const p = (p0 + k) % ROUTE.length, lap = Math.floor((p0 + k) / ROUTE.length);
-    if (ROUTE[p][1] + lap * LOOP_MIN - t0 > min) break;
+  for (let k = 1; k < n; k++) {
+    const p = (p0 + k) % n, lap = p0 + k >= n ? LOOP_MIN : 0;
+    if (ROUTE[p].min + lap - t0 > min) break;
     best = p;
   }
-  return stopIdx('Zlín, ' + ROUTE[best][0]);
+  return stopIdx(ROUTE[best].name);
 }
 
 /* A transport day ends at 3:00, so tickets and daily caps run until then. */
@@ -73,6 +81,8 @@ let S;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
 if (!S || typeof S !== 'object' || !('user' in S)) S = fresh();
 S.credit ??= 0; S.smartStop ??= true; S.companions ??= [];
+if (S.route && S.route.length) applyRoute(S.route, S.loopMin || DEFAULT_LOOP);
+if (!STOPS[S.stop]) S.stop = 0;
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 save(); // keep the seeded history stable across reloads
 
@@ -100,6 +110,8 @@ const initials = u => ((u.first || '')[0] || '') + ((u.last || '')[0] || '');
 
 /* ----------------------------------------------------------------- icons */
 const IC = {
+  infoFill: `<svg width="20" height="20" viewBox="0 0 20 20" style="flex:none"><circle cx="10" cy="10" r="9" fill="#46464a"/><circle cx="10" cy="5.900" r="1.300" fill="#fff"/><rect x="8.900" y="8.300" width="2.200" height="6.500" rx=".6" fill="#fff"/></svg>`,
+  radCheck: `<svg viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"><path d="M5.500 10.500l3 3 6-6.500"/></svg>`,
   paxIcon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="#555"><circle cx="12" cy="7.5" r="4.3"/><path d="M3.5 21c.4-4.8 3.700-7.300 8.500-7.300s8.100 2.500 8.500 7.300z"/></svg>`,
   coins: `<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="15" fill="#17a882"/><g fill="none" stroke="#fff" stroke-width="1.7"><ellipse cx="12.5" cy="9.5" rx="5" ry="2"/><path d="M7.5 9.5v8.5c0 1.1 2.2 2 5 2M7.5 12.3c0 1.1 2.2 2 5 2s5-.9 5-2M7.5 15.2c0 1.1 2.2 2 5 2M17.5 9.5v3"/><circle cx="19" cy="18" r="4.6" fill="#17a882"/></g></svg>`,
   giftPlus: `<svg width="34" height="30" viewBox="0 0 34 30" fill="#111"><rect x="1" y="11" width="22" height="5" rx="1"/><rect x="2.5" y="17.5" width="19" height="11" rx="1"/><path d="M12 11c-3 0-6.5-1-6-3.5s4-2 6 3.5zm0 0c3 0 6.5-1 6-3.5s-4-2-6 3.5z" fill="none" stroke="#111" stroke-width="1.8"/><path d="M27 1v10M22 6h10" stroke="#111" stroke-width="1.8" stroke-linecap="round"/></svg>`,
@@ -137,22 +149,23 @@ const bar = () => `<div class="hdr"><img class="logo" src="assets/logo.png" alt=
 
 /* ------------------------------------------------------- overlay helpers */
 const overlay = $('#overlay');
-function closeOverlay() { overlay.innerHTML = ''; overlay.style.pointerEvents = 'none'; }
+let overlayT;
+function closeOverlay() { clearTimeout(overlayT); overlay.innerHTML = ''; overlay.style.pointerEvents = 'none'; }
 function sheet(html, bind) {
-  overlay.style.pointerEvents = 'auto';
+  clearTimeout(overlayT); overlay.style.pointerEvents = 'auto';
   overlay.innerHTML = `<div class="scrim"></div><div class="sheet"><div class="grab"></div>${html}</div>`;
   const sc = $('.scrim', overlay), sh = $('.sheet', overlay);
   requestAnimationFrame(() => { sc.classList.add('on'); sh.classList.add('on'); });
-  const close = () => { sc.classList.remove('on'); sh.classList.remove('on'); setTimeout(closeOverlay, 260); };
+  const close = () => { sc.classList.remove('on'); sh.classList.remove('on'); overlayT = setTimeout(closeOverlay, 260); };
   sc.onclick = close; $$('[data-close]', sh).forEach(b => b.onclick = close);
   bind && bind(sh, close);
 }
 function dialog(title, text, okLabel, onOk, cancelLabel = 'Zrušit') {
-  overlay.style.pointerEvents = 'auto';
+  clearTimeout(overlayT); overlay.style.pointerEvents = 'auto';
   overlay.innerHTML = `<div class="scrim"></div><div class="dialog"><h2>${esc(title)}</h2><p>${text}</p><div class="row"><button data-x>${cancelLabel}</button><button class="pri" data-ok>${okLabel}</button></div></div>`;
   const sc = $('.scrim', overlay), dl = $('.dialog', overlay);
   requestAnimationFrame(() => { sc.classList.add('on'); dl.classList.add('on'); });
-  const close = () => { sc.classList.remove('on'); dl.classList.remove('on'); setTimeout(closeOverlay, 220); };
+  const close = () => { sc.classList.remove('on'); dl.classList.remove('on'); overlayT = setTimeout(closeOverlay, 220); };
   sc.onclick = close; $('[data-x]', dl).onclick = close; $('[data-ok]', dl).onclick = () => { close(); onOk && onOk(); };
 }
 let toastT;
@@ -172,7 +185,7 @@ function render(name, params = {}, anim = '') {
   if (NAVTAB[name]) addNav(root, NAVTAB[name]);
 }
 /* sub-pages that keep the floating tab bar, like the original app */
-const NAVTAB = { ticket: 'travel', thanks: 'travel', promo: 'rewards', credithist: 'rewards', smartstop: 'travel', rides: 'profile', payment: 'profile', notifset: 'profile', language: 'profile', help: 'profile', legal: 'profile', about: 'profile' };
+const NAVTAB = { stops: 'travel', ticket: 'travel', thanks: 'travel', promo: 'rewards', credithist: 'rewards', smartstop: 'travel', rides: 'profile', payment: 'profile', notifset: 'profile', language: 'profile', help: 'profile', legal: 'profile', about: 'profile' };
 const navHTML = (on = '') => `<nav class="nav">
   <button data-t="travel" class="${on === 'travel' ? 'on' : ''}">${IC.travel}<span>Cestovat</span></button>
   <button data-t="rewards" class="${on === 'rewards' ? 'on' : ''}">${IC.gift}<span>Odměny</span></button>
@@ -194,6 +207,11 @@ function back() {
   render(t.name, t.params, 'back');
 }
 
+/* Every image is fetched and decoded up front, so a screen never appears without its picture. */
+const IMAGES = ['logo.png', 'tagline.png', 'zlin.webp', 'ticket-eye.webp', 'piggy.webp', 'smartstop.webp', 'bus.png', 'shelter.png', 'ob1.png', 'ob2.png', 'ob3.png', 'app-icon-192.png'];
+const imageCache = IMAGES.map(f => Object.assign(new Image(), { src: 'assets/' + f }));
+const imagesReady = Promise.all(imageCache.map(i => i.decode().catch(() => {})));
+
 /* ---------------------------------------------------------------- screens */
 const unread = () => !S.notifsRead;
 const curStop = () => STOPS[S.stop] || STOPS[0];
@@ -204,10 +222,12 @@ const SCREENS = {};
 SCREENS.splash = root => {
   root.className = 'scr splash';
   root.innerHTML = `<div class="lg"><img class="logo" src="assets/logo.png" alt="FAIRTIQ"><img class="tag" src="assets/tagline.png" alt="Public transport made easy."></div>`;
-  setTimeout(() => {
+  const minTime = new Promise(r => setTimeout(r, 1500));
+  const maxTime = new Promise(r => setTimeout(r, 4000));
+  Promise.race([Promise.all([minTime, imagesReady]), maxTime]).then(() => {
     if (stack[stack.length - 1]?.name !== 'splash') return;
     go(S.user ? 'main' : 'onboarding', { tab: 'travel' }, { reset: true, anim: 'fade' });
-  }, 1500);
+  });
 };
 
 /* onboarding */
@@ -320,8 +340,8 @@ function Travel(mb, mh) {
   mb.innerHTML = `
     <div class="hello">${esc(S.user.first)}</div>
     <div class="hero">${ride
-      ? `<div class="tk"><img src="assets/ticket-eye.png" alt=""><button class="pill-dark" id="showtk">Zobrazit jízdenku</button></div>`
-      : `<img class="zl" src="assets/zlin.png" alt=""><button class="grp" id="grp" aria-label="Skupina">${IC.people}</button>`}</div>
+      ? `<div class="tk"><img src="assets/ticket-eye.webp" width="470" height="190" alt=""><button class="pill-dark" id="showtk">Zobrazit jízdenku</button></div>`
+      : `<img class="zl" src="assets/zlin.webp" width="800" height="585" alt=""><button class="grp" id="grp" aria-label="Skupina">${IC.people}</button>`}</div>
     <div class="loc">
       <div class="nm"><h2>${esc(stop[0])}</h2>${ride ? '' : '<button class="chg" id="chg">Změnit</button>'}</div>
       <div class="rg">${esc(stop[1])}</div>
@@ -422,25 +442,105 @@ SCREENS.ticket = root => {
         <p class="demo">Ukázková aplikace – kód není platný doklad o přepravě.</p>
       </div>
     </div>`;
-  try {
-    bwipjs.toCanvas($('#aztec', root), { bcid: 'azteccode', text: `FAIRTIQ-DEMO|NEPLATNA JIZDENKA - UKAZKOVA APLIKACE|${r.id}|${r.start}|${r.validTo}|` + btoa(`${r.id}:${r.start}:demo`).repeat(5), eclevel: 33, scale: 5, backgroundcolor: pal.bg.slice(1), barcolor: '000000', padding: 6 });
-  } catch (e) { $('#aztec', root).replaceWith(Object.assign(document.createElement('div'), { textContent: 'Kód nelze zobrazit' })); }
+  const drawCode = () => {
+    const c = $('#aztec', root);
+    if (!c || !c.isConnected) return;
+    if (!window.bwipjs) { setTimeout(drawCode, 60); return; }
+    try {
+    bwipjs.toCanvas(c, { bcid: 'azteccode', text: `FAIRTIQ-DEMO|NEPLATNA JIZDENKA - UKAZKOVA APLIKACE|${r.id}|${r.start}|${r.validTo}|` + btoa(`${r.id}:${r.start}:demo`).repeat(5), eclevel: 33, scale: 5, backgroundcolor: pal.bg.slice(1), barcolor: '000000', padding: 6 });
+    } catch (e) { c.replaceWith(Object.assign(document.createElement('div'), { textContent: 'Kód nelze zobrazit' })); }
+  };
+  setTimeout(drawCode);
   tickFn = () => { const c = $('#clk'); c && (c.textContent = fmtClock(Date.now())); };
 };
 
 /* stops */
 SCREENS.stops = root => {
-  root.innerHTML = `${hdr('Změnit zastávku', true)}
-    <div class="search"><div class="dob"><input class="inp" id="q" placeholder="Hledat zastávku…" style="padding-left:48px"><span style="position:absolute;left:14px;top:14px">${IC.search}</span></div></div>
-    <div class="scroll list" id="ls"></div>`;
-  const ls = $('#ls', root);
-  const draw = q => {
-    const n = norm(q || '');
-    const items = STOPS.map((s, i) => [s, i]).filter(([s]) => norm(s[0]).includes(n));
-    ls.innerHTML = items.length ? items.map(([s, i]) => `<button class="row" data-i="${i}"><div class="stop-i">${IC.pin(i === S.stop ? '#17a882' : '#e21a34')}</div><div class="tx"><b>${esc(s[0])}</b><span>${esc(s[1])}${i === S.stop ? ' · aktuální' : ''}</span></div>${IC.chevR()}</button>`).join('') : '<div class="empty">Zastávka nenalezena</div>';
-    $$('.row', ls).forEach(b => b.onclick = () => { S.stop = +b.dataset.i; save(); back(); });
+  const cur = curStop();
+  const order = [S.stop, ...STOPS.keys()].filter((v, i, all) => all.indexOf(v) === i);
+  root.innerHTML = `${hdr('Vybrat zastávku', true)}
+    <div class="scroll" style="background:var(--grey)">
+      <button class="st-area" id="area"><span>Platnost v oblasti ${esc(cur[1])}</span>${IC.infoFill}</button>
+      <div class="st-h">Pravděpodobně se nacházíte v okolí více zastávek. Zvolte tu, ve které nastoupíte.</div>
+      <div class="st-list">${order.map(i => `<button class="st-row" data-i="${i}"><i class="rad ${i === S.stop ? 'on' : ''}">${IC.radCheck}</i><span>${esc(STOPS[i][0])}</span></button>`).join('')}</div>
+    </div>`;
+  $('#area', root).onclick = () => sheet(`<h2>Platnost v oblasti ${esc(cur[1])}</h2><p>${VALIDITY_LONG}</p><button class="btn-red" data-close>Zavřít</button>`);
+  $$('.st-row', root).forEach(b => b.onclick = () => {
+    S.stop = +b.dataset.i; save();
+    $$('.rad', root).forEach(r => r.classList.remove('on'));
+    $('.rad', b).classList.add('on');
+    setTimeout(() => { if (root.isConnected) back(); }, 180);
+  });
+  /* hidden: three quick taps on the red header open the dev menu */
+  const h = $('.hdr', root);
+  let taps = 0, tapT;
+  h.style.touchAction = 'manipulation';
+  h.addEventListener('click', e => {
+    if (e.target.closest('[data-back]')) return;
+    clearTimeout(tapT); tapT = setTimeout(() => taps = 0, 700);
+    if (++taps >= 3) { taps = 0; go('devstops'); }
+  });
+};
+
+/* dev menu: edit the stops and their minutes on the route */
+function setRoute(route, loop, rename) {
+  let name = curStop()[0];
+  const sorted = route.slice().sort((x, y) => x.min - y.min);
+  loop = Math.max(loop, sorted[sorted.length - 1].min + 1);
+  S.route = sorted; S.loopMin = loop;
+  applyRoute(sorted, loop);
+  if (rename && rename.from === name && stopIdx(name) < 0) name = rename.to;
+  S.stop = Math.max(0, stopIdx(name)); save();
+}
+SCREENS.devstops = root => {
+  const num = v => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) && n >= 0 ? n : null; };
+  const edit = i => {
+    const r = i == null ? { name: '', region: 'Zlínský kraj', min: ROUTE[ROUTE.length - 1].min + 2 } : ROUTE[i];
+    sheet(`<h2>${i == null ? 'Nová zastávka' : 'Upravit zastávku'}</h2>
+      <div class="form" style="padding:8px 0 0">
+        <label class="l" for="d1">Název</label><input class="inp" id="d1" placeholder="Zlín, Nová zastávka" value="${esc(r.name)}">
+        <label class="l" for="d2">Oblast</label><input class="inp" id="d2" placeholder="Zlínský kraj" value="${esc(r.region)}">
+        <label class="l" for="d3">Minuta na trase</label><input class="inp" id="d3" inputmode="decimal" value="${r.min}">
+      </div>
+      <button class="btn-red" id="dsave" style="margin-top:22px">Uložit</button>
+      ${i != null && ROUTE.length > 1 ? '<button class="btn-ghost" id="ddel">Smazat zastávku</button>' : ''}`, (sh, close) => {
+      const val = id => $(id, sh).value.trim(), btn = $('#dsave', sh);
+      const ok = () => val('#d1') && val('#d2') && num(val('#d3')) != null;
+      const upd = () => btn.classList.toggle('dis', !ok());
+      $$('input', sh).forEach(x => x.addEventListener('input', upd)); upd();
+      btn.onclick = () => {
+        if (!ok()) return;
+        const item = { name: val('#d1'), region: val('#d2'), min: num(val('#d3')) };
+        const next = ROUTE.slice();
+        if (i == null) next.push(item); else next[i] = item;
+        setRoute(next, LOOP_MIN, i == null ? null : { from: r.name, to: item.name });
+        close(); draw();
+      };
+      const del = $('#ddel', sh);
+      del && (del.onclick = () => dialog('Smazat zastávku?', esc(r.name) + ' zmizí z trasy.', 'Smazat', () => {
+        setRoute(ROUTE.filter((_, k) => k !== i), LOOP_MIN); draw();
+      }));
+    });
   };
-  $('#q', root).oninput = e => draw(e.target.value); draw('');
+  const draw = () => {
+    root.innerHTML = `${hdr('Dev menu', true)}
+      <div class="scroll" style="background:var(--grey)">
+        <p class="phelp">Zastávky jsou seřazené podle trasy. Minuta je čas od začátku okruhu a podle ní se při jízdě určí, kde vystoupíš.</p>
+        <div class="st-area dev-loop"><label for="loop">Délka okruhu (min)</label><input class="inp" id="loop" inputmode="decimal" value="${LOOP_MIN}"></div>
+        <div class="list" style="margin-top:16px">${ROUTE.map((r, i) => `<button class="row" data-i="${i}"><span class="dev-min">${r.min}</span><div class="tx"><b>${esc(r.name)}</b><span>${esc(r.region)}</span></div>${IC.chevR()}</button>`).join('')}</div>
+        <div style="padding:16px 16px calc(var(--sab) + 24px)"><button class="btn-red" id="add" style="margin:0">Přidat zastávku</button><button class="btn-ghost" id="reset">Obnovit výchozí</button></div>
+      </div>`;
+    $('[data-back]', root).onclick = back;
+    $$('.row', root).forEach(b => b.onclick = () => edit(+b.dataset.i));
+    $('#add', root).onclick = () => edit(null);
+    $('#loop', root).onchange = e => { const n = num(e.target.value); if (n) setRoute(ROUTE, n); draw(); };
+    $('#reset', root).onclick = () => dialog('Obnovit výchozí?', 'Vrátí se původní zastávky linky 32, trasa A.', 'Obnovit', () => {
+      const name = curStop()[0];
+      S.route = null; S.loopMin = null; applyRoute(DEFAULT_ROUTE, DEFAULT_LOOP);
+      S.stop = Math.max(0, stopIdx(name)); save(); draw();
+    });
+  };
+  draw();
 };
 
 /* notifications */
@@ -469,7 +569,7 @@ function Rewards(mb) {
       <p>Tuto částku odečteme při přístím vyúčtování, pokud je to bude oblast umožňovat.</p>
       <div class="amt"><b>${fmtKc(S.credit)}</b><span>Kč</span></div>
       <button class="chip" id="hist">Zobrazit historii</button>
-      <img src="assets/piggy.png" alt="">
+      <img src="assets/piggy.webp" width="924" height="314" alt="">
     </div>
     <button class="rowx" id="newpromo">${IC.giftPlus}<span>Přidat se k nové akci</span>${IC.chevR('#9a9da5', 22)}</button>
   </div>`;
@@ -507,7 +607,7 @@ SCREENS.smartstop = root => {
       <div class="ssrow">${IC.sparkle}<span>Smart Stop</span>${Switch('ss', S.smartStop)}</div>
       <div class="sstext"><p>Díky funkci Smart Stop FAIRTIQ dokáže poznat, kdy jste už dojeli do cíle, ale nevypnuli jste cestování.</p>
       <p>Pokaždé, kdy tento případ nastane, funkce Smart Stop zahájí odpočítávání a zobrazí vám o tom zprávu. Dostanete na výběr, jestli chcete pokračovat v cestování, nebo cestování vypnout. Pokud nezareagujete, funkce Smart Stop automaticky po určité době vypne cestování (cca po 10–30 minutách). Upozorňujeme, že nastavení funkce Smart Stop není možné měnit během zapnutého cestování.</p></div>
-      <img class="ssimg" src="assets/smartstop.png" alt="">
+      <img class="ssimg" src="assets/smartstop.webp" width="550" height="450" alt="">
     </div>`;
   const sw = $('#ss', root);
   sw.addEventListener('click', e => {
@@ -647,7 +747,7 @@ SCREENS.legal = (root, { kind = 'menu' } = {}) => {
 /* about */
 SCREENS.about = root => {
   root.innerHTML = `${hdr('O aplikaci', true)}<div class="scroll" style="background:var(--grey)"><div style="text-align:center;padding:36px 24px">
-    <img src="assets/icon-192.png" width="84" height="84" style="margin:0 auto 14px;border-radius:20px" alt="">
+    <img src="assets/app-icon-192.png" width="84" height="84" style="margin:0 auto 14px;border-radius:20px" alt="">
     <b style="font-size:20px">FAIRTIQ</b><div style="color:#6b6e76;margin-top:4px;font-size:14px">Public transport made easy.</div>
     <div style="color:#6b6e76;margin-top:14px;font-size:14px">Verze 5.14.0 (cs)</div>
     <p class="help" style="margin-top:22px;font-size:13.5px;color:#6b6e76">Ukázková aplikace vytvořená podle vzhledu FAIRTIQ. Jízdenka a QR kód slouží pouze jako demonstrace a nejsou platným dokladem o přepravě.</p></div></div>`;
@@ -661,5 +761,6 @@ setInterval(() => {
   tickFn && tickFn();
 }, 1000);
 document.addEventListener('contextmenu', e => { if (e.target.closest('img')) e.preventDefault(); });
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 go('splash', {}, { reset: true, anim: '' });
 })();
